@@ -68,16 +68,16 @@ actions.
 
 ```swift
 enum HolderSessionState: Equatable {
-	case initialising
-	case preflight(missing: Set<Permission>)
-	case readyToPresent
-	case presentingEngagement
-	case connecting
-	case requestReceived
-	case processingResponse
-	case success(data: DeviceResponse)
-	case failed(error: SessionError)
-	case cancelled
+    case initialising
+    case preflight(missing: Set<Permission>)
+    case readyToPresent
+    case presentingEngagement
+    case connecting
+    case requestReceived
+    case processingResponse
+    case success(data: DeviceResponse)
+    case failed(error: SessionError)
+    case cancelled
 }
 ```
 
