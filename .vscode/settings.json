@@ -1,3 +1,6 @@
 {
-    "editor.rulers": [80]
+    "editor.rulers": [80],
+    "vale.valeCLI.config": "${workspaceFolder}/.vale.ini",
+    "vale.enableSpellcheck": true,
+    "vale.valeCLI.syncOnStartup": true,
 }
