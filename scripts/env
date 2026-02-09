@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+# Environment variables commonly used in multiple scripts
+# In order to make sure that a script can utilise these environment variables, include the
+# proceeding command at the beginning of your script:
+
+# source $(git rev-parse --show-toplevel)/scripts/env
+
+GIT_ROOT="$(git rev-parse --show-toplevel)"
+
+echo "Git root: ${GIT_ROOT}"
+
+export GIT_ROOT

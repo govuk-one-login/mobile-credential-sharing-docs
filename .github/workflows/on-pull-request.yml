@@ -1,0 +1,45 @@
+name: "Documentation - Lint checks"
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+  merge_group:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  GITHUB_ACTOR: ${{ github.actor }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+permissions:
+  packages: read
+
+jobs:
+  prose_linting:
+    # Cannot be ubuntu-slim due to use of `snap` to download dependencies:
+    # https://github.com/actions/runner-images/issues/13534
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          lfs: 'true'
+          submodules: 'true'
+          fetch-depth: 0
+      - name: Update APT repository
+        uses: ./.github/actions/update-apt
+      - name: Install vale prose linter
+        run: |
+          ./scripts/lint/vale/install
+        shell: bash
+      - name: Run vale prose linting
+        uses: errata-ai/vale-action@d89dee975228ae261d22c15adcd03578634d429c # v2.1.1
+        with:
+          fail_on_error: true
+          reporter: github-pr-check
+          version: latest

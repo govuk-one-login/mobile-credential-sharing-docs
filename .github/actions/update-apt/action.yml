@@ -1,0 +1,17 @@
+name: Update linux APT repository
+description: Updates the APT dependency manager; Installs 'snapd'
+runs:
+  using: "composite"
+  steps:
+    - name: Update APT repository
+      run: |
+        sudo apt update
+      shell: bash
+    - name: Install Snap for dependencies
+      run: |
+        sudo apt install snapd
+      shell: bash
+    - name: Start the snapd systemd service
+      run: |
+        sudo systemctl start snapd.service
+      shell: bash
