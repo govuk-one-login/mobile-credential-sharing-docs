@@ -3,5 +3,6 @@
         "bierner.github-markdown-preview",
         "chrischinchilla.vale-vscode",
         "davidanson.vscode-markdownlint",
+        "github.vscode-github-actions",
     ]
 }
