@@ -29,6 +29,10 @@ jobs:
           lfs: 'true'
           submodules: 'true'
           fetch-depth: 0
+      - name: Install Snap for dependencies
+        run: |
+          sudo apt install snapd
+        shell: bash
       - name: Install vale prose linter
         run: |
           ./scripts/lint/vale/install
