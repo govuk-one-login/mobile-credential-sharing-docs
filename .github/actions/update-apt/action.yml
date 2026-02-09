@@ -11,3 +11,7 @@ runs:
       run: |
         sudo apt install snapd
       shell: bash
+    - name: Start the snapd systemd service
+      run: |
+        sudo systemctl start snapd.service
+      shell: bash
