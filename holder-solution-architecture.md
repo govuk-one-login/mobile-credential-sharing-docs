@@ -2,49 +2,53 @@
 
 ## Executive Summary
 
-This document outlines the architectural patterns and orchestration logic required to implement an
-ISO 18013-5 compliant mDL Holder. It maps the complete transaction lifecycle from managing device
-permissions to the final cryptographic proof generation and user-consented release of identity data.
-It uses an Orchestrator-driven pattern where application logic is centralised, and state is enforced
-by a passive state machine.
+This document outlines the architectural patterns and orchestration logic
+required to implement an ISO 18013-5 compliant mDL Holder. It maps the complete
+transaction lifecycle from managing device permissions to the final
+cryptographic proof generation and user-consented release of identity data.
+It uses an Orchestrator-driven pattern where application logic is centralised,
+and state is enforced by a passive state machine.
 
 The DCMAW-18018 Jira ticket acts as the epic for this work.
 
 ## The Mental Model: Orchestrator & Session
 
-The architecture separates **Execution** (doing things) from **State** (tracking where we are in the
-flow).
+The architecture separates **Execution** (doing things) from **State** (tracking
+where we are in the flow).
 
 1. **Orchestrator**
     - **Role**: The business logic of the application.
-    - **Responsibility**: Owns the hardware services (Secure Storage, Bluetooth, Crypto). It
-      initiates all actions (e.g. calling `bluetooth.startAdvertising()`).
-    - **State Control**: Observes the results of these actions and attempts to transition the
-      Session to the appropriate next state.
+    - **Responsibility**: Owns the hardware services (Secure Storage, Bluetooth,
+      Crypto). It initiates all actions (e.g. calling
+      `bluetooth.startAdvertising()`).
+    - **State Control**: Observes the results of these actions and attempts to
+      transition the Session to the appropriate next state.
 2. **HolderSession (the map)**
     - **Role**: Passive Finite State Machine (FSM).
-    - **Responsibility**: Enforces the ISO 18013-5 sequence. It does not perform work or side
-      effects.
-    - **The Guardrail**: Exposes a `transition(to: State)` method and validates that the requested
-      transition is legal based on the current state.
+    - **Responsibility**: Enforces the ISO 18013-5 sequence. It does not perform
+      work or side effects.
+    - **The Guardrail**: Exposes a `transition(to: State)` method and validates
+      that the requested transition is legal based on the current state.
 
 ## Lifecycle & Ephemerality
 
-The `HolderSession` is a **Single-Use Object**. It corresponds 1:1 with a specific cryptographic
-session.
+The `HolderSession` is a **Single-Use Object**. It corresponds 1:1 with a
+specific cryptographic session.
 
-1. **Terminal States**: Once the session reaches `.success`, `.failed`, or `.cancelled`, it is
-   immutable. It cannot be reset or rewound.
-2. **Handling Retries**: To restart a flow, the Orchestrator must **discard** the current session
-   instance and instantiate a new one. This ensures that a fresh set of Ephemeral Keys and a new
-   Session Transcript are generated for every attempt.
+1. **Terminal States**: Once the session reaches `.success`, `.failed`, or
+   `.cancelled`, it is immutable. It cannot be reset or rewound.
+2. **Handling Retries**: To restart a flow, the Orchestrator must **discard**
+   the current session instance and instantiate a new one. This ensures that a
+   fresh set of Ephemeral Keys and a new Session Transcript are generated for
+   every attempt.
 
 ## Architectural Flow
 
-The presentation process is divided into four distinct and sequential phases, mirroring the Verifier
-lifecycle:
+The presentation process is divided into four distinct and sequential phases,
+mirroring the Verifier lifecycle:
 
-1. **Pre-flight Checks**: Ensuring capabilities (Bluetooth, Location as needed) are authorised.
+1. **Pre-flight Checks**: Ensuring capabilities (Bluetooth, Location as needed)
+   are authorised.
 2. **Device Engagement**: Generating and displaying the QR code.
 3. **Transport & Data**:
     - *Inbound*: Accepting the connection and parsing the request.
@@ -62,9 +66,38 @@ lifecycle:
 
 ## Holder Session States
 
-Holder Session is a state machine, deciding what screen should show (e.g. permissions needed,
-scanning in progress, connected, reading, success, failure) and triggering one-off effects or
-actions.
+Holder Session is a state machine, deciding what screen should show (e.g.
+permissions needed, scanning in progress, connected, reading, success, failure)
+and triggering one-off effects or actions.
+
+<details>
+<summary>Android HolderSessionState sealed class</summary>
+
+```kotlin
+sealed class HolderSessionState {
+    data object NotStarted : HolderSessionState()
+    data class Preflight(
+        val missingPermissions: Set<String>
+    ) : HolderSessionState()
+    data object ReadyToPresent : HolderSessionState()
+    data object PresentingEngagement : HolderSessionState()
+    data object Connecting : HolderSessionState()
+    data object RequestReceived : HolderSessionState()
+    data object ProcessingResponse : HolderSessionState()
+    sealed class Complete(val reason: String) : HolderSessionState() {
+        data class Success(
+            val data: DeviceResponse
+        ) : Complete("Successful journey")
+        data class Failed(val error: SessionError) : Complete(error.message)
+        data object Cancelled : Complete("Journey cancelled by User")
+    }
+}
+```
+
+</details>
+
+<details>
+<summary>iOS HolderSessionState enum</summary>
 
 ```swift
 enum HolderSessionState: Equatable {
@@ -81,6 +114,8 @@ enum HolderSessionState: Equatable {
 }
 ```
 
+</details>
+
 | Diagram Phase                             | State                | UI Responsibility                                                   |
 |-------------------------------------------|----------------------|---------------------------------------------------------------------|
 | Startup                                   | Initialising         | Load credential metadata.                                           |
@@ -96,14 +131,15 @@ enum HolderSessionState: Equatable {
 
 ## Startup
 
-The **Orchestrator** is a long-lived object that persists across the application lifecycle (or
-screen lifecycle).
+The **Orchestrator** is a long-lived object that persists across the application
+lifecycle (or screen lifecycle).
 
-When the user selects a card to present, the **Orchestrator** instantiates a fresh `HolderSession`
-in the `Initialising` state.
+When the user selects a card to present, the **Orchestrator** instantiates a
+fresh `HolderSession` in the `Initialising` state.
 
-This session instance is ephemeral: it lives only for the duration of this specific transaction. If
-the transaction fails or completes, this specific session object is discarded.
+This session instance is ephemeral: it lives only for the duration of this
+specific transaction. If the transaction fails or completes, this specific
+session object is discarded.
 
 ```mermaid
 sequenceDiagram
@@ -125,29 +161,30 @@ sequenceDiagram
 
 ## 1. Pre-flight Checks
 
-This phase ensures the device is capable of performing the transaction before we attempt any
-cryptography or UI rendering.
+This phase ensures the device is capable of performing the transaction before we
+attempt any cryptography or UI rendering.
 
-With the `HolderSession` in `Initialising` state, the **Orchestrator** calls the `PrerequisiteGate`
-to check firstly that device capabilities are present, and then that the User has granted permission
-to access them.
+With the `HolderSession` in `Initialising` state, the **Orchestrator** calls the
+`PrerequisiteGate` to check firstly that device capabilities are present, and
+then that the User has granted permission to access them.
 
-The mDL transaction relies on Bluetooth Low Energy (BLE) to transfer data. On Android, this requires
-Location permissions to be granted as well.
+The mDL transaction relies on Bluetooth Low Energy (BLE) to transfer data. On
+Android, this requires Location permissions to be granted as well.
 
-The `PrerequisiteGate` returns with a set of missing capabilities, if any. The Orchestrator
-transitions the `HolderSession` into a state of `Preflight(missing: {<Capability>})`.
+The `PrerequisiteGate` returns with a set of missing capabilities, if any. The
+Orchestrator transitions the `HolderSession` into a state of
+`Preflight(missing: {<Capability>})`.
 
-By passing this as a set, this enables the `View` and `Orchestrator` to present an onboarding flow
-with the correct number of steps. For example, if the set contains both Bluetooth and Location as
-missing permissions, the view can prepare onboarding that presents these sequentially with
-explanations for each.
+By passing this as a set, this enables the `View` and `Orchestrator` to present
+an onboarding flow with the correct number of steps. For example, if the set
+contains both Bluetooth and Location as missing permissions, the view can
+prepare onboarding that presents these sequentially with explanations for each.
 
-As the User grants or denies each permission, this triggers the Orchestrator to retry the check
-which loops until all permissions are granted.
+As the User grants or denies each permission, this triggers the Orchestrator to
+retry the check which loops until all permissions are granted.
 
-Once the `PrerequisiteGate` determines that there are no missing capabilities, the Orchestrator
-transitions the `HolderSession` to a `ReadyToPresent` state.
+Once the `PrerequisiteGate` determines that there are no missing capabilities,
+the Orchestrator transitions the `HolderSession` to a `ReadyToPresent` state.
 
 ```mermaid
 sequenceDiagram
@@ -194,18 +231,21 @@ sequenceDiagram
 
 ## 2. Initialisation & Device Engagement
 
-*This phase covers the setup of cryptographic material and the generation of the QR code.*
+*This phase covers the setup of cryptographic material and the generation of*
+*the QR code.*
 
 Once pre-flight checks are completed, Device Engagement can begin.
 
-The **Orchestrator** instructs the `CryptoService` to generate the `DeviceEngagement` structure,
-which contains:
+The **Orchestrator** instructs the `CryptoService` to generate the
+`DeviceEngagement` structure, which contains:
 
-1. **BLE Service UUID**: The unique address the Verifier will need to find this specific device.
-2. **Device Public Key**: the key needed for the Verifier to start the encrypted session.
+1. **BLE Service UUID**: The unique address the Verifier will need to find this
+   pecific device.
+2. **Device Public Key**: the key needed for the Verifier to start the encrypted
+   session.
 
-Once generated, the UI renders this as a QR code, and the Orchestrator transitions the
-`HolderSession` to `PresentingEngagement`.
+Once generated, the UI renders this as a QR code, and the Orchestrator
+transitions the `HolderSession` to `PresentingEngagement`.
 
 ```mermaid
 sequenceDiagram
@@ -229,20 +269,20 @@ sequenceDiagram
 
 ## 3. Transport & Data
 
-*This phase covers the "Server" role: connecting, receiving the question, obtaining consent and
-answering.*
+*This phase covers the "Server" role: connecting, receiving the question,*
+*obtaining consent and answering.*
 
-Unlike the Verifier, this phase is **bidirectional and interrupted**. It consists of 3 distinct
-steps:
+Unlike the Verifier, this phase is **bidirectional and interrupted**. It
+consists of 3 distinct steps:
 
 ### 3.1. Session Establishment (Inbound)
 
-The **Orchestrator** instructs the `BluetoothTransport` to start advertising and accept the BLE
-connection. When the `SessionEstablishment` message is received, the Orchestrator passes it to the
-`CryptoService` to decrypt the payload.
+The **Orchestrator** instructs the `BluetoothTransport` to start advertising and
+accept the BLE connection. When the `SessionEstablishment` message is received,
+the Orchestrator passes it to the `CryptoService` to decrypt the payload.
 
-Upon successful decryption, the Orchestrator transitions the `HolderSession` to the
-`RequestReceived` state.
+Upon successful decryption, the Orchestrator transitions the `HolderSession` to
+the `RequestReceived` state.
 
 ```mermaid
 sequenceDiagram
@@ -266,8 +306,8 @@ sequenceDiagram
 
 ### 3.2. User Consent (The Decision)
 
-The UI displays the request (e.g. "Verifier wants: Age over 18"). The session stays in this state
-until the user explicitly taps **Allow** or **Deny**.
+The UI displays the request (e.g. "Verifier wants: Age over 18"). The session
+stays in this state until the user explicitly taps **Allow** or **Deny**.
 
 ```mermaid
 sequenceDiagram
@@ -287,11 +327,12 @@ sequenceDiagram
 
 ### 3.3. Response Generation (Outbound)
 
-Once consented, the Orchestrator resumes. It instructs the `CryptoService` to generate the
-`DeviceSigned` structure and transmits the encrypted response via `BluetoothTransport`.
+Once consented, the Orchestrator resumes. It instructs the `CryptoService` to
+generate the `DeviceSigned` structure and transmits the encrypted response via
+`BluetoothTransport`.
 
-The Orchestrator then transitions the `HolderSession` to `ProcessingResponse` and finally to
-`Success`.
+The Orchestrator then transitions the `HolderSession` to `ProcessingResponse`
+and finally to `Success`.
 
 ```mermaid
 sequenceDiagram
@@ -316,13 +357,14 @@ sequenceDiagram
 
 ## 4. Interruption & Cancellation
 
-The cancellation flow handles user-initiated interruptions at any stage of the presentation process.
+The cancellation flow handles user-initiated interruptions at any stage of the
+presentation process.
 
-When cancellation occurs, the **Orchestrator** must terminate and tear down transports, and wipe all
-ephemeral session keys from memory.
+When cancellation occurs, the **Orchestrator** must terminate and tear down
+transports, and wipe all ephemeral session keys from memory.
 
-The Orchestrator transitions the `HolderSession` to a final `Cancelled` state, signalling the UI to
-dismiss the presentation flow.
+The Orchestrator transitions the `HolderSession` to a final `Cancelled` state,
+signalling the UI to dismiss the presentation flow.
 
 ```mermaid
 sequenceDiagram
