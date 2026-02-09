@@ -1,0 +1,10 @@
+default: true
+MD013:
+    # Line length linting
+    line_length: 80
+    tables: false
+MD033:
+    # Inline HTML tags
+    allowed_elements:
+        - details
+        - summary
