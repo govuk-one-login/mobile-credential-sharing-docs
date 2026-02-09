@@ -6,26 +6,26 @@ This document outlines the architectural patterns and orchestration logic
 required to implement an ISO 18013-5 compliant mDL Holder. It maps the complete
 transaction lifecycle from managing device permissions to the final
 cryptographic proof generation and user-consented release of identity data.
-It uses an Orchestrator-driven pattern where application logic is centralised,
-and state is enforced by a passive state machine.
+It uses an Orchestrator-driven pattern that centralises and enforces app logic
+state via a passive state machine.
 
 The DCMAW-18018 Jira ticket acts as the epic for this work.
 
 ## The Mental Model: Orchestrator & Session
 
 The architecture separates **Execution** (doing things) from **State** (tracking
-where we are in the flow).
+where we're in the flow).
 
 1. **Orchestrator**
-    - **Role**: The business logic of the application.
+    - **Role**: The business logic of the app.
     - **Responsibility**: Owns the hardware services (Secure Storage, Bluetooth,
-      Crypto). It initiates all actions (e.g. calling
+      Crypto). It initiates all actions (for example, calling
       `bluetooth.startAdvertising()`).
     - **State Control**: Observes the results of these actions and attempts to
       transition the Session to the appropriate next state.
 2. **HolderSession (the map)**
     - **Role**: Passive Finite State Machine (FSM).
-    - **Responsibility**: Enforces the ISO 18013-5 sequence. It does not perform
+    - **Responsibility**: Enforces the ISO 18013-5 sequence. It doesn't perform
       work or side effects.
     - **The Guardrail**: Exposes a `transition(to: State)` method and validates
       that the requested transition is legal based on the current state.
@@ -36,19 +36,20 @@ The `HolderSession` is a **Single-Use Object**. It corresponds 1:1 with a
 specific cryptographic session.
 
 1. **Terminal States**: Once the session reaches `.success`, `.failed`, or
-   `.cancelled`, it is immutable. It cannot be reset or rewound.
+   `.cancelled`, it's immutable. It can't be reset or rewound.
 2. **Handling Retries**: To restart a flow, the Orchestrator must **discard**
    the current session instance and instantiate a new one. This ensures that a
-   fresh set of Ephemeral Keys and a new Session Transcript are generated for
+   fresh set of Ephemeral Keys and generates a new Session Transcript for
    every attempt.
 
 ## Architectural Flow
 
-The presentation process is divided into four distinct and sequential phases,
+The presentation process divides into four distinct and sequential phases,
 mirroring the Verifier lifecycle:
 
-1. **Pre-flight Checks**: Ensuring capabilities (Bluetooth, Location as needed)
-   are authorised.
+1. **Pre-flight Checks**: Authorises required capabilities:
+   - Bluetooth
+   - Location as needed
 2. **Device Engagement**: Generating and displaying the QR code.
 3. **Transport & Data**:
     - *Inbound*: Accepting the connection and parsing the request.
@@ -66,9 +67,9 @@ mirroring the Verifier lifecycle:
 
 ## Holder Session States
 
-Holder Session is a state machine, deciding what screen should show (e.g.
-permissions needed, scanning in progress, connected, reading, success, failure)
-and triggering one-off effects or actions.
+Holder Session is a state machine, deciding what screen should show
+(for example, permissions needed, scanning in progress, connected, reading,
+success, failure) and triggering one-off effects or actions.
 
 <details>
 <summary>Android HolderSessionState sealed class</summary>
@@ -131,15 +132,15 @@ enum HolderSessionState: Equatable {
 
 ## Startup
 
-The **Orchestrator** is a long-lived object that persists across the application
+The **Orchestrator** is a long-lived object that persists across the app
 lifecycle (or screen lifecycle).
 
 When the user selects a card to present, the **Orchestrator** instantiates a
 fresh `HolderSession` in the `Initialising` state.
 
 This session instance is ephemeral: it lives only for the duration of this
-specific transaction. If the transaction fails or completes, this specific
-session object is discarded.
+specific transaction. The Orchestrator discards the session object once the
+transaction fails or completes.
 
 ```mermaid
 sequenceDiagram
@@ -169,19 +170,19 @@ With the `HolderSession` in `Initialising` state, the **Orchestrator** calls the
 then that the User has granted permission to access them.
 
 The mDL transaction relies on Bluetooth Low Energy (BLE) to transfer data. On
-Android, this requires Location permissions to be granted as well.
+Android, this requires granting Location permissions as well.
 
 The `PrerequisiteGate` returns with a set of missing capabilities, if any. The
 Orchestrator transitions the `HolderSession` into a state of
 `Preflight(missing: {<Capability>})`.
 
 By passing this as a set, this enables the `View` and `Orchestrator` to present
-an onboarding flow with the correct number of steps. For example, if the set
+an on-boarding flow with the correct number of steps. For example, if the set
 contains both Bluetooth and Location as missing permissions, the view can
-prepare onboarding that presents these sequentially with explanations for each.
+prepare on-boarding that presents these sequentially with explanations for each.
 
-As the User grants or denies each permission, this triggers the Orchestrator to
-retry the check which loops until all permissions are granted.
+The Orchestrator loops through each permission, retrying each check until
+they're granted.
 
 Once the `PrerequisiteGate` determines that there are no missing capabilities,
 the Orchestrator transitions the `HolderSession` to a `ReadyToPresent` state.
@@ -205,8 +206,8 @@ sequenceDiagram
         OR ->> HS: transition(to: .preflight(missing))
         HS -->> OR: state = Preflight
         OR ->> UI: render(state: .preflight)
-    %% 2. Unified Onboarding
-        UI -->> User: Show Onboarding Flow (Sequence of Steps)
+    %% 2. Unified on-boarding
+        UI -->> User: Show on-boarding Flow (Sequence of Steps)
     %% 3. Sequential Resolution
         loop For each capability
             User ->> UI: Tap "Enable Capability"
@@ -234,13 +235,13 @@ sequenceDiagram
 *This phase covers the setup of cryptographic material and the generation of*
 *the QR code.*
 
-Once pre-flight checks are completed, Device Engagement can begin.
+Completing the pre-flight checks then begins the Device Engagement.
 
 The **Orchestrator** instructs the `CryptoService` to generate the
 `DeviceEngagement` structure, which contains:
 
-1. **BLE Service UUID**: The unique address the Verifier will need to find this
-   pecific device.
+1. **BLE Service's Universally Unique Identifier (UUID)**: The specific device's
+   unique address that the Verifier searches for.
 2. **Device Public Key**: the key needed for the Verifier to start the encrypted
    session.
 
@@ -278,7 +279,7 @@ consists of 3 distinct steps:
 ### 3.1. Session Establishment (Inbound)
 
 The **Orchestrator** instructs the `BluetoothTransport` to start advertising and
-accept the BLE connection. When the `SessionEstablishment` message is received,
+accept the BLE connection. When receiving the `SessionEstablishment` message,
 the Orchestrator passes it to the `CryptoService` to decrypt the payload.
 
 Upon successful decryption, the Orchestrator transitions the `HolderSession` to
@@ -306,8 +307,9 @@ sequenceDiagram
 
 ### 3.2. User Consent (The Decision)
 
-The UI displays the request (e.g. "Verifier wants: Age over 18"). The session
-stays in this state until the user explicitly taps **Allow** or **Deny**.
+The UI displays the request (for example, "Verifier wants: age over 18"). The
+session stays in this state until the user explicitly taps **Allow** or
+**Deny**.
 
 ```mermaid
 sequenceDiagram
@@ -360,7 +362,7 @@ sequenceDiagram
 The cancellation flow handles user-initiated interruptions at any stage of the
 presentation process.
 
-When cancellation occurs, the **Orchestrator** must terminate and tear down
+When cancellation occurs, the **Orchestrator** must end and tear down
 transports, and wipe all ephemeral session keys from memory.
 
 The Orchestrator transitions the `HolderSession` to a final `Cancelled` state,

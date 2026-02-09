@@ -1,4 +1,8 @@
 (?i)Bluetooth
+(?i)Crypto
+(?i)Enum
+(?i)Jira
+DCMAW
 GOV
 ISO
 SDK
