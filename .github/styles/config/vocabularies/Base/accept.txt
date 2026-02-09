@@ -1,0 +1,5 @@
+(?i)Bluetooth
+GOV
+ISO
+SDK
+TBC

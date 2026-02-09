@@ -1,6 +1,7 @@
 {
     "recommendations": [
         "bierner.github-markdown-preview",
-        "davidanson.vscode-markdownlint"
+        "chrischinchilla.vale-vscode",
+        "davidanson.vscode-markdownlint",
     ]
 }

@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Exit immediately if a simple command exits with a non-zero status
+# see also: the 'set' command within the 'Shell Builtin Commands' section of `man bash`
+set -o errexit
+
+case "$(uname -s)" in
+  Darwin*)
+    brew install vale
+    ;;
+  Linux*)
+    sudo snap install vale
+    ;;
+esac

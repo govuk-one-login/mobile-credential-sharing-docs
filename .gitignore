@@ -1,3 +1,8 @@
+# Vale configuration styles should always be downloaded / up to date:
+.github/styles/Google
+.github/styles/tech-writing-style-guide
+
+
 # Created by https://www.toptal.com/developers/gitignore/api/xcode,androidstudio,intellij+all,vim,macos,visualstudiocode,linux,windows
 # Edit at https://www.toptal.com/developers/gitignore?templates=xcode,androidstudio,intellij+all,vim,macos,visualstudiocode,linux,windows
 
