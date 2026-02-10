@@ -62,7 +62,14 @@ mirroring the Verifier lifecycle:
      - Listen to / standardise app permission state:
        - Android: DCMAW-18019
        - iOS: DCMAW-18021
+     - Implement holder pre-flight checks:
+       - iOS: DCMAW-18396
+     - Integrate UI with holder pre-flight checks:
+       - iOS: DCMAW-18471
 2. **Device Engagement**: Generating and displaying the QR code.
+   - **Associated Jira tickets**:
+     - Initialise Holder device engagement
+     - iOS: DCMAW-18470
 3. **Transport & Data**:
     - *Inbound*: Accepting the connection and parsing the request.
     - *Interruption*: Waiting for User Consent.
