@@ -91,7 +91,6 @@ actions such as launching permission prompt, starting a system activity.
 ```kotlin
 sealed class  VerifierSessionState {
     data object NotStarted : VerifierSessionState()
-    data object Initialising : VerifierSessionState()
     data class Preflight(
         val missingPermissions: Set<String>
     ) : VerifierSessionState()
@@ -118,7 +117,7 @@ sealed class  VerifierSessionState {
 
 ```swift
 enum VerifierSessionState: Equatable {
- case initialising
+ case notStarted
  case preflight(missing: Set<Permission>)
  case readyToScan
  case processingEngagement

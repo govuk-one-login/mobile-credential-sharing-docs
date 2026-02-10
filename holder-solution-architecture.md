@@ -121,7 +121,7 @@ sealed class HolderSessionState {
 
 ```swift
 enum HolderSessionState: Equatable {
-    case initialising
+    case notStarted
     case preflight(missing: Set<Permission>)
     case readyToPresent
     case presentingEngagement
