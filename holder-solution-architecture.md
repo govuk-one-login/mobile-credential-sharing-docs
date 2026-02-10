@@ -23,12 +23,20 @@ where we're in the flow).
       `bluetooth.startAdvertising()`).
     - **State Control**: Observes the results of these actions and attempts to
       transition the Session to the appropriate next state.
+    - **Associated Jira tickets**:
+      - `HolderOrchestrator` implementation:
+        - Android: DCMAW-18153
+        - iOS: DCMAW-18155
 2. **HolderSession (the map)**
     - **Role**: Passive Finite State Machine (FSM).
     - **Responsibility**: Enforces the ISO 18013-5 sequence. It doesn't perform
       work or side effects.
     - **The Guardrail**: Exposes a `transition(to: State)` method and validates
       that the requested transition is legal based on the current state.
+    - **Associated Jira tickets**:
+      - `HolderSession` implementation
+        - Android: DCMAW-18154
+        - iOS: DCMAW-18156
 
 ## Lifecycle & Ephemerality
 
@@ -50,7 +58,18 @@ mirroring the Verifier lifecycle:
 1. **Pre-flight Checks**: Authorises required capabilities:
    - Bluetooth
    - Location as needed
+   - **Associated Jira tickets**:
+     - Listen to / standardise app permission state:
+       - Android: DCMAW-18019
+       - iOS: DCMAW-18021
+     - Implement holder pre-flight checks:
+       - iOS: DCMAW-18396
+     - Integrate UI with holder pre-flight checks:
+       - iOS: DCMAW-18471
 2. **Device Engagement**: Generating and displaying the QR code.
+   - **Associated Jira tickets**:
+     - Initialise Holder device engagement
+     - iOS: DCMAW-18470
 3. **Transport & Data**:
     - *Inbound*: Accepting the connection and parsing the request.
     - *Interruption*: Waiting for User Consent.
@@ -102,7 +121,7 @@ sealed class HolderSessionState {
 
 ```swift
 enum HolderSessionState: Equatable {
-    case initialising
+    case notStarted
     case preflight(missing: Set<Permission>)
     case readyToPresent
     case presentingEngagement
