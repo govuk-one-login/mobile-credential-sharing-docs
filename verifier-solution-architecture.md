@@ -20,6 +20,10 @@ the User's position in the flow).
       `bluetooth.connect()`).
     - **State Control**: Observes the results of these actions and attempts to
       transition the Session to the appropriate next state.
+    - **Associated Jira tickets**:
+      - `VerifierOrchestrator` implementation:
+        - Android: DCMAW-18157
+        - iOS: DCMAW-18159
 2. **VerifierSession (the map)**  
     - **Role**: Passive Finite State Machine (FSM).
     - **Responsibility**: Enforces the ISO 18013-5 sequence. It doesn't perform
@@ -28,6 +32,10 @@ the User's position in the flow).
       that the requested transition is legal based on the current state
       (for example, allowing `Scanning → Connecting`, but blocking
       `Scanning → Success`).
+    - **Associated Jira tickets**:
+      - `VerifierSession` implementation:
+        - Android: DCMAW-18158
+        - iOS: DCMAW-18160
 
 ## Lifecycle & Ephemerality
 
@@ -50,6 +58,10 @@ sequential phases:
 1. **Pre-flight Checks**: Authorises required capabilities:
    - Bluetooth
    - Camera
+   - **Associated Jira tickets**:
+     - Listen to / standardise app permission state:
+       - Android: DCMAW-18019
+       - iOS: DCMAW-18021
 2. **Device Engagement**: Capturing the QR code to extract the Holder’s identity
    and initialise session cryptography.
 3. **Transport & Data**: Establishing the secure Bluetooth Low Energy (BLE)
