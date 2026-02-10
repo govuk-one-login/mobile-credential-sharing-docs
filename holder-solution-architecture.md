@@ -5,8 +5,8 @@
 This document outlines the architectural patterns and orchestration logic
 required to implement an ISO 18013-5 compliant mDL Holder. It maps the complete
 transaction lifecycle from managing device permissions to the final
-cryptographic proof generation and user-consented release of identity data.
-It uses an Orchestrator-driven pattern that centralises and enforces app logic
+cryptographic proof generation and user-consented release of identity data. It
+uses an Orchestrator-driven pattern that centralises and enforces app logic
 state via a passive state machine.
 
 The DCMAW-18018 Jira ticket acts as the epic for this work.
@@ -23,9 +23,9 @@ The architecture separates **Execution** from the current **State** in the flow.
    - **State Control**: Observes the results of these actions and attempts to
      transition the Session to the appropriate next state.
    - **Associated Jira tickets**:
-      - `HolderOrchestrator` implementation:
-        - Android: DCMAW-18153
-        - iOS: DCMAW-18155
+     - `HolderOrchestrator` implementation:
+       - Android: DCMAW-18153
+       - iOS: DCMAW-18155
 2. **HolderSession (Represents a Transaction)**
    - **Role**: Passive Finite State Machine (FSM) + Ephemeral Resource
      Container.
@@ -36,9 +36,9 @@ The architecture separates **Execution** from the current **State** in the flow.
    - **Benefit**: This centralizes the lifecycle. When the Orchestrator discards
      a Session, **all associated resources are automatically released/wiped.**
    - **Associated Jira tickets**:
-      - `HolderSession` implementation
-        - Android: DCMAW-18154
-        - iOS: DCMAW-18156
+     - `HolderSession` implementation
+       - Android: DCMAW-18154
+       - iOS: DCMAW-18156
 
 ## Lifecycle & Ephemerality
 
@@ -94,13 +94,14 @@ mirroring the Verifier lifecycle:
 
 1. **Pre-flight Checks**: Ensuring capabilities (Bluetooth, Location as needed)
    are authorised.
-      - **Associated Jira tickets**:
-        - Listen to / standardise app permission state: (Android: DCMAW-18019/iOS: DCMAW-18021)
-        - Implement holder pre-flight checks: (iOS: DCMAW-18396)
-        - Integrate UI with holder pre-flight checks: (iOS: DCMAW-18471)
+   - **Associated Jira tickets**:
+     - Listen to / standardise app permission state: (Android: DCMAW-18019/iOS:
+       DCMAW-18021)
+     - Implement holder pre-flight checks: (iOS: DCMAW-18396)
+     - Integrate UI with holder pre-flight checks: (iOS: DCMAW-18471)
 2. **Device Engagement**: Generating and displaying the QR code.
-    - **Associated Jira tickets**:
-      - Initialise Holder device engagement (iOS: DCMAW-18470)
+   - **Associated Jira tickets**:
+     - Initialise Holder device engagement (iOS: DCMAW-18470)
 3. **Transport & Data**:
    - _Inbound_: Accepting the connection and parsing the request.
    - _Consent_: Waiting for User Consent.
@@ -118,9 +119,9 @@ mirroring the Verifier lifecycle:
 
 ## Holder Session States
 
-Holder Session is a state machine, deciding what screen should show
-(for example, permissions needed, scanning in progress, connected, reading,
-success, failure) and triggering one-off effects or actions.
+Holder Session is a state machine, deciding what screen should show (for
+example, permissions needed, scanning in progress, connected, reading, success,
+failure) and triggering one-off effects or actions.
 
 <details>
 <summary>Android HolderSessionState sealed class</summary>
@@ -230,8 +231,8 @@ enum HolderSessionState: Equatable {
 
 ## Startup
 
-The **Orchestrator** is a long-lived object that persists across the app
-lifecycle (or screen lifecycle).
+The **Orchestrator** is a long-lived object that persists across the lifecycle
+of the app, or feature.
 
 When the user selects a card to present, the **Orchestrator** instantiates a
 fresh `HolderSession` in the `NotStarted` state.
@@ -466,8 +467,8 @@ pause. If the `BluetoothTransport` reports a disconnection (for example, due to
 signal loss or supervision timeout), the Orchestrator immediately triggers the
 Cancellation flow (see Section 4).
 
-The user reviews the request (for example, "Verifier wants: Age over 18") and taps
-**Allow** (confirming the specific data items to release) or **Deny**.
+The user reviews the request (for example, "Verifier wants: Age over 18") and
+taps **Allow** (confirming the specific data items to release) or **Deny**.
 
 ```mermaid
 sequenceDiagram
