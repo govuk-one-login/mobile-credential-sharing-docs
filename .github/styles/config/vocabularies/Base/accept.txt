@@ -2,8 +2,17 @@
 (?i)Crypto
 (?i)Enum
 (?i)Jira
+Brewfile
 DCMAW
+GitHub
+GNU
 GOV
+gpgsign
 ISO
+SCRIPTDIR
 SDK
+shellcheck
+Shellcheck
 TBC
+toplevel
+VSCode

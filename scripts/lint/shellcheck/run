@@ -6,12 +6,11 @@ set -o errexit
 # shellcheck source=env
 source "$(git rev-parse --show-toplevel)/scripts/env"
 
-if command -v vale; then
-  echo "Vale is already installed. Syncing..."
+if command -v shellcheck; then
+  echo "Shellcheck is already installed. Linting..."
 else
-  echo "Vale is unavailable! Installing..."
-  "${GIT_ROOT}"/scripts/lint/vale/install
+  echo "Shellcheck is unavailable! Installing..."
+  "${GIT_ROOT}"/scripts/lint/shellcheck/install
 fi
 
-vale sync
-vale --no-wrap --config="${GIT_ROOT}/.vale.ini" "${GIT_ROOT}/"
+find ./scripts -type f -exec shellcheck {} +

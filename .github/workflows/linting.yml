@@ -1,0 +1,91 @@
+name: "Documentation - Lint checks"
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+  merge_group:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  GITHUB_ACTOR: ${{ github.actor }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+permissions:
+  packages: read
+
+jobs:
+  markdown_linting:
+    # Cannot be ubuntu-slim due to use of `snap` to download dependencies:
+    # https://github.com/actions/runner-images/issues/13534
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          lfs: 'true'
+          submodules: 'true'
+          fetch-depth: 0
+      - name: Perform markdown linting
+        uses: reviewdog/action-markdownlint@3667398db9118d7e78f7a63d10e26ce454ba5f58 # v0.26.2
+        with:
+          level: "info"
+          filter_mode: "nofilter"
+          reporter: github-pr-check
+          fail_level: any
+
+  prose_linting:
+    # Cannot be ubuntu-slim due to use of `snap` to download dependencies:
+    # https://github.com/actions/runner-images/issues/13534
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          lfs: 'true'
+          submodules: 'true'
+          fetch-depth: 0
+      - name: Update APT repository
+        uses: ./.github/actions/update-apt
+      - name: Install vale prose linter
+        run: |
+          ./scripts/lint/vale/install
+        shell: bash
+      - name: Perform vale prose linting
+        uses: errata-ai/vale-action@d89dee975228ae261d22c15adcd03578634d429c # v2.1.1
+        with:
+          fail_on_error: true
+          reporter: github-pr-check
+          version: latest
+          filter_mode: "nofilter"
+
+  shell_linting:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          lfs: 'true'
+          submodules: 'true'
+          fetch-depth: 0
+      - name: Update APT repository
+        uses: ./.github/actions/update-apt
+      - name: Install shellcheck via APT
+        run: |
+          sudo apt install shellcheck
+        shell: bash
+      - name: Perform shellcheck linting
+        uses: reviewdog/action-shellcheck@5ebd09ddbe2ebb471646ce234c6c8dd18663ca7c # v1.30.0
+        with:
+          check_all_files_with_shebangs: "true" # scripts have no file extension, relying on shebang lines
+          fail_level: any
+          level: "info"
+          filter_mode: "nofilter"
+          path: "./scripts"
+          pattern: "*"
+          reporter: github-pr-check
