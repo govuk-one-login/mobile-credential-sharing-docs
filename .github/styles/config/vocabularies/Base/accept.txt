@@ -4,7 +4,10 @@
 (?i)Jira
 Brewfile
 DCMAW
+GitHub
+GNU
 GOV
+gpgsign
 ISO
 SCRIPTDIR
 SDK

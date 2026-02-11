@@ -6,8 +6,6 @@ expectations before being permanently added into the repository.
 
 ## Installation
 
-### Via git configuration
-
 Git configuration can override the `core.hooksPath` property to point to a
 non-default directory:
 
