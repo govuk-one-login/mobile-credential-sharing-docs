@@ -3,6 +3,7 @@
         "bierner.github-markdown-preview",
         "chrischinchilla.vale-vscode",
         "davidanson.vscode-markdownlint",
+        "dnut.rewrap-revived",
         "github.vscode-github-actions",
     ]
 }
