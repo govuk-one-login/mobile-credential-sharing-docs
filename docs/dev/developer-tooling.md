@@ -1,14 +1,19 @@
 # Developer Tooling
 
+## Overview
+
+The [Repository Brewfile] contains all of the necessary dependencies so that
+developers using a freshly cloned repository can then perform the proceeding
+command:
+
+```shell
+brew bundle check || brew bundle install
+```
+
 - [Homebrew]
 
   An agnostic package manager for downloading additional repository
-  dependencies. There's a [Repository Brewfile] available for installing
-  missing programs defined in this list with the proceeding command:
-
-  ```shell
-  brew bundle check || brew bundle install
-  ```
+  dependencies.
 
 - [Shellcheck linter]
 
