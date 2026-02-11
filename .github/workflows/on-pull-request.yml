@@ -20,6 +20,23 @@ permissions:
   packages: read
 
 jobs:
+  markdown_linting:
+    # Cannot be ubuntu-slim due to use of `snap` to download dependencies:
+    # https://github.com/actions/runner-images/issues/13534
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          lfs: 'true'
+          submodules: 'true'
+          fetch-depth: 0
+      - name: Perform markdown linting
+        uses: reviewdog/action-markdownlint@3667398db9118d7e78f7a63d10e26ce454ba5f58 # v0.26.2
+        with:
+          reporter: github-pr-check
+          fail_level: any
+
   prose_linting:
     # Cannot be ubuntu-slim due to use of `snap` to download dependencies:
     # https://github.com/actions/runner-images/issues/13534
@@ -37,7 +54,7 @@ jobs:
         run: |
           ./scripts/lint/vale/install
         shell: bash
-      - name: Run vale prose linting
+      - name: Perform vale prose linting
         uses: errata-ai/vale-action@d89dee975228ae261d22c15adcd03578634d429c # v2.1.1
         with:
           fail_on_error: true
@@ -62,7 +79,7 @@ jobs:
       - name: Perform shellcheck linting
         uses: reviewdog/action-shellcheck@5ebd09ddbe2ebb471646ce234c6c8dd18663ca7c # v1.30.0
         with:
-          github_token: ${{ secrets.github_token }}
-          reporter: github-pr-check
-          path: "./scripts"
           check_all_files_with_shebangs: "true" # scripts have no file extension, relying on shebang lines
+          fail_level: any
+          path: "./scripts"
+          reporter: github-pr-check
