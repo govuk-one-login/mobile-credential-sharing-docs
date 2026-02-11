@@ -1,10 +1,46 @@
 {
+    // Markdown file configuration
     "[markdown]": {
-        "editor.rulers": [80],
+        "editor.codeActionsOnSave": {
+            "source.fixAll.markdownlint": "always"
+        },
+        "editor.defaultFormatter": "DavidAnson.vscode-markdownlint",
+        "editor.fontLigatures": true,
+        "editor.formatOnPaste": true,
+        "editor.formatOnSave": true,
+        "editor.insertSpaces": true,
+        "editor.rulers": [
+            80
+        ],
+        "editor.tabSize": 4,
+        "files.trimFinalNewlines": true,
+        "files.trimTrailingWhitespace": false,
         "rewrap.autoWrap.enabled": true,
-        "rewrap.wholeComment": true
+        "rewrap.wholeComment": true,
     },
+    // 'cSpell' spell checker configuration
+    "cSpell.customDictionaries": {
+        "valeAccepted": {
+            "addWords": true,
+            "description": "Collection of words accepted by the vale prose linter",
+            "name": "Vale accepted words",
+            "path": "${workspaceFolder}/.github/styles/config/vocabularies/Base/accept.txt",
+            "scope": "workspace",
+        },
+    },
+    // optional dictionaries related to the code base
+    "cSpell.dictionaries": [
+        "git",
+        "kotlin",
+        "swift",
+    ],
+    "cSpell.language": "en-gb",
+    "markdown.editor.updateLinksOnPaste.enabled": true,
+    // allow [markdown link](#reference) completion when typing the # within the brackets
+    "markdown.suggest.paths.includeWorkspaceHeaderCompletions": "onSingleOrDoubleHash",
+    "markdown.updateLinksOnFileMove.enabled": "prompt",
+    // Full validations for references, such as [markdown links]
+    "markdown.validate.enabled": true,
     "vale.valeCLI.config": "${workspaceFolder}/.vale.ini",
-    "vale.enableSpellcheck": true,
     "vale.valeCLI.syncOnStartup": true,
 }

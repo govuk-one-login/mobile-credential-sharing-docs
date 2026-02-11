@@ -5,5 +5,7 @@
         "davidanson.vscode-markdownlint",
         "dnut.rewrap-revived",
         "github.vscode-github-actions",
+        "streetsidesoftware.code-spell-checker",
+        "streetsidesoftware.code-spell-checker-british-english-ise",
     ]
 }
