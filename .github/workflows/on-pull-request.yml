@@ -43,3 +43,26 @@ jobs:
           fail_on_error: true
           reporter: github-pr-check
           version: latest
+
+  shell_linting:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          lfs: 'true'
+          submodules: 'true'
+          fetch-depth: 0
+      - name: Update APT repository
+        uses: ./.github/actions/update-apt
+      - name: Install shellcheck via APT
+        run: |
+          sudo apt install shellcheck
+        shell: bash
+      - name: Perform shellcheck linting
+        uses: reviewdog/action-shellcheck@5ebd09ddbe2ebb471646ce234c6c8dd18663ca7c # v1.30.0
+        with:
+          github_token: ${{ secrets.github_token }}
+          reporter: github-pr-check
+          path: "./scripts"
+          check_all_files_with_shebangs: "true" # scripts have no file extension, relying on shebang lines

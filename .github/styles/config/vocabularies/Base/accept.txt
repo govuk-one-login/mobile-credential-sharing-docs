@@ -2,8 +2,14 @@
 (?i)Crypto
 (?i)Enum
 (?i)Jira
+Brewfile
 DCMAW
 GOV
 ISO
+SCRIPTDIR
 SDK
+shellcheck
+Shellcheck
 TBC
+toplevel
+VSCode

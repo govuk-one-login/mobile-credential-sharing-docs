@@ -41,6 +41,7 @@
     "markdown.updateLinksOnFileMove.enabled": "prompt",
     // Full validations for references, such as [markdown links]
     "markdown.validate.enabled": true,
+    "shellcheck.useWorkspaceRootAsCwd": true,
     "vale.valeCLI.config": "${workspaceFolder}/.vale.ini",
     "vale.valeCLI.syncOnStartup": true,
 }
