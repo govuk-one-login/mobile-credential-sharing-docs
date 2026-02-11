@@ -62,6 +62,7 @@ jobs:
           fail_on_error: true
           reporter: github-pr-check
           version: latest
+          filter_mode: "nofilter"
 
   shell_linting:
     runs-on: ubuntu-latest
