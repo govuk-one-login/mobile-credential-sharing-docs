@@ -34,6 +34,8 @@ jobs:
       - name: Perform markdown linting
         uses: reviewdog/action-markdownlint@3667398db9118d7e78f7a63d10e26ce454ba5f58 # v0.26.2
         with:
+          level: "info"
+          filter_mode: "nofilter"
           reporter: github-pr-check
           fail_level: any
 
@@ -81,5 +83,8 @@ jobs:
         with:
           check_all_files_with_shebangs: "true" # scripts have no file extension, relying on shebang lines
           fail_level: any
+          level: "info"
+          filter_mode: "nofilter"
           path: "./scripts"
+          pattern: "*"
           reporter: github-pr-check
