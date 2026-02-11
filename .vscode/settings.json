@@ -1,5 +1,9 @@
 {
-    "editor.rulers": [80],
+    "[markdown]": {
+        "editor.rulers": [80],
+        "rewrap.autoWrap.enabled": true,
+        "rewrap.wholeComment": true
+    },
     "vale.valeCLI.config": "${workspaceFolder}/.vale.ini",
     "vale.enableSpellcheck": true,
     "vale.valeCLI.syncOnStartup": true,
