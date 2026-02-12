@@ -24,14 +24,15 @@ the User's position in the flow).
       - `VerifierOrchestrator` implementation:
         - Android: DCMAW-18157
         - iOS: DCMAW-18159
-2. **VerifierSession (the map)**  
-    - **Role**: Passive Finite State Machine (FSM).
-    - **Responsibility**: Enforces the ISO 18013-5 sequence. It doesn't perform
-      work or side effects.
-    - **The Guardrail**: Exposes a `transition(to: State)` method and validates
-      that the requested transition is legal based on the current state
-      (for example, allowing `Scanning → Connecting`, but blocking
-      `Scanning → Success`).
+2. **VerifierSession (Represents a Transaction)**
+    - **Role**: Passive Finite State Machine (FSM) + Ephemeral Resource
+      Container.
+    - **Responsibility**: Enforces the ISO 18013-5 sequence.
+    - **Evolution**: In addition to tracking _logical_ state (for example,
+      "Connecting"), the Session also holds the _ephemeral resources_ for that
+      transaction (for example, encryption keys, active connection handles).
+    - **Benefit**: This centralizes the lifecycle. When the Orchestrator discards
+      a Session, **all associated resources are automatically released/wiped.**
     - **Associated Jira tickets**:
       - `VerifierSession` implementation:
         - Android: DCMAW-18158
@@ -49,6 +50,23 @@ specific cryptographic session.
    instantiate a new one. This ensures that a fresh set of Ephemeral Keys and
    generates a new Session Transcript for every attempt, strictly adhering to
    the ISO 18013-5 security model.
+
+### Tear-Down & Cleanup
+
+In a standard architecture, the Orchestrator would manually track resources
+(keys, connections) and must remember to release them on every exit path (error,
+cancel, success). This is error-prone; a missed tear-down step could leave keys
+in memory or the Bluetooth radio running.
+
+By anchoring these ephemeral resources to the `VerifierSession`, we enable
+**automatic cleanup**.
+
+- The Orchestrator simply manages the _Session_.
+- When the Session is de-allocated (for example, `currentSession = nil`), the
+  Session's `deinit` triggers the destruction of its contents: keys are wiped,
+  and Bluetooth connections are terminated.
+- This delivers robust security and battery management with minimal code
+  complexity in the Orchestrator.
 
 ## Architectural Flow
 
@@ -261,20 +279,26 @@ to the `Orchestrator`, which then stops the camera.
 With this raw string, the `Orchestrator` transitions the `VerifierSession` to
 `ProcessingEngagement`.
 
-The `Orchestrator` passes the string to the `CryptoService` to decode and
-validate the engagement structure.
+The `Orchestrator` passes the string and the **current session** to the
+`CryptoService` (`processEngagement(qrCodeString, in: session)`).
 
-If the string is a valid mDL format, the `CryptoService` generates an ephemeral
-key pair for the Verifier, and combines its Public Key with the raw Device
-Engagement bytes to form the Session Transcript. Upon success, the
-`CryptoService` holds the symmetric session keys (`SKReader` and `SKDevice`)
-required to encrypt the initial Bluetooth request.
+The `CryptoService` performs the heavy lifting:
+
+1. Decodes and validates the engagement structure.
+2. Generates an ephemeral key pair for the Verifier.
+3. Calculates the Session Transcript.
+
+It **decorates the session directly**:
+
+- **Private Context**: `session.cryptoContext` (Session Keys).
+- **Target Identity**: Stores the UUID and Device Public Key in the session for
+  the Transport layer to use.
 
 Notice that the `Orchestrator` calls the `CryptoService` before interacting with
 Bluetooth. This is because mDL requires encryption from the very first message.
 
-With the keys established, the `Orchestrator` transitions the `VerifierSession`
-to the `Connecting` state.
+With the keys established and stored in the session, the `Orchestrator`
+transitions the `VerifierSession` to the `Connecting` state.
 
 ```mermaid
 sequenceDiagram
@@ -308,7 +332,7 @@ sequenceDiagram
     OR->>UI: render(state: .processingEngagement)
     Note right of UI: eg. "Reading code…"
     
-    OR->>CRY: decode(qrCodeString)
+    OR->>CRY: processEngagement(qrCodeString, in: session)
     
     alt Invalid QR Code
         CRY-->>OR: error(invalidFormat)
@@ -316,14 +340,12 @@ sequenceDiagram
         VS-->>OR: state = Failed
         OR->>UI: showError("Invalid QR Code")
     else Valid mDL QR Code
-        CRY-->>OR: deviceEngagement
-        Note left of CRY: Contains BLE UUID,<br/>Device Public Key,<br/>Version
+        activate CRY
+        Note left of CRY: 1. Decode QR<br/>2. Generate Ephemeral Keys<br/>3. Populate Session (keys, uuid)
+        CRY-->>OR: void
+        deactivate CRY
         
-        OR->>CRY: createSessionKeys(deviceEngagement)
-        CRY-->>OR: sessionKeys (SKReader, SKDevice)
-        Note left of CRY: Derived from SessionTranscript<br/>& Ephemeral Keys
-        
-        Note right of OR: We now have the UUID<br/>to dial the device
+        Note right of OR: Session now holds the UUID<br/>to dial the device
         OR->>VS: transition(to: .connecting)
         VS-->>OR: state = Connecting
     end
@@ -344,9 +366,12 @@ This includes two key components according to the ISO specification:
 ### 3.1. Transport Layer Setup
 
 The `Orchestrator` instructs the `BluetoothTransport` layer to initiate a
-connection using the specific Service's Universally Unique Identifier (UUID)
-extracted from the QR code. The transport layer scans for the advertising
-device and establishes a raw BLE connection.
+connection using the specific Service UUID stored in the `VerifierSession`.
+
+Crucially, the `BluetoothTransport` returns a **Connection Handle** which acts
+as a token for the active connection.
+
+The Orchestrator stores this handle **in the VerifierSession**.
 
 ```mermaid
 sequenceDiagram
@@ -363,11 +388,14 @@ sequenceDiagram
 
     rect rgb(210, 245, 210)
 
-    OR->>BLE: connect(uuid: deviceEngagement.uuid)
+    OR->>BLE: connect(uuid: session.uuid)
     activate BLE
     Note right of BLE: Finding Device…
-    BLE-->>OR: connected
+    BLE-->>OR: handle (ConnectionHandle)
     deactivate BLE
+    
+    OR->>VS: session.connection = handle
+    Note right of VS: Session now owns the connection.<br/>If Session dies, connection drops.
      
     end
 ```
@@ -375,7 +403,7 @@ sequenceDiagram
 ### 3.2. Session Establishment
 
 Once connected, the `Orchestrator` requests the `CryptoService` to construct the
-`SessionEstablishment` message.
+`SessionEstablishment` message **using the session context**.
 
 The ISO standard defines a single message structure called
 `SessionEstablishment` that carries both:
@@ -389,8 +417,7 @@ The `Orchestrator` sends this combined payload via the `BluetoothTransport` to
 the Holder.
 
 > **Note:** By binding the session keys to the original QR code (via the Session
-Transcript), we ensure we're connecting to the exact scanned device.
->
+> Transcript), we ensure we are connecting to the exact device that was scanned.
 
 ```mermaid
 sequenceDiagram
@@ -407,13 +434,13 @@ sequenceDiagram
     
     rect rgb(210, 245, 210)
 
-    OR->>CRY: generateSessionEstablishment(items: [.familyName, .ageIsOver18])
+    OR->>CRY: generateSessionEstablishment(items: [..], in: session)
     activate CRY
-    Note left of CRY: Constructs 'SessionEstablishent'<br/>(Ephemeral Key + Encrypted DeviceRequest)
+    Note left of CRY: Reads keys from Session.<br/>Constructs 'SessionEstablishent'
     CRY-->>OR: sessionEstablishmentPayload
     deactivate CRY
 
-    OR->>BLE: send(sessionEstablishmentPayload)
+    OR->>BLE: send(sessionEstablishmentPayload, using: session.connection)
     
     end
 ```
@@ -425,7 +452,7 @@ the `SessionData` payload, the `BluetoothTransport` passes the encrypted bytes
 to the `Orchestrator`. The `Orchestrator` transitions the `VerifierSession` to
 `Verifying` and passes the data to `CryptoService`.
 
-The service performs three actions:
+The service performs three actions using the context in the `session`:
 
 1. **Decryption**: Unlocks the `DeviceResponse` using the derived session keys.
 2. **Trust Validation**: Verifies the digital signature of the
@@ -461,14 +488,14 @@ sequenceDiagram
     OR->>UI: render(state: .verifying)
     Note right of UI: "Verifying Signature…"
     
-    OR->>CRY: processResponse(sessionData)
+    OR->>CRY: processResponse(sessionData, in: session)
     activate CRY
     Note left of CRY: Decrypts Response,<br/>Validates Issuer Signature<br/>& Checks Integrity
     CRY-->>OR: deviceResponse (Decrypted & Validated)
     deactivate CRY
     
     Note right of OR: Teardown
-    OR->>BLE: disconnect()
+    OR->>BLE: disconnect(session.connection)
     
     end
 ```
@@ -512,14 +539,23 @@ sequenceDiagram
 
 ## 4. Interruption & Cancellation
 
-The cancellation flow handles user-initiated interruptions at any stage of the
-verification process.
+The cancellation flow handles user-initiated interruptions or system failures
+(for example, Bluetooth timeout).
 
-When cancellation occurs, the `Orchestrator` must exit and tear down
-transports, and wipe all ephemeral session keys from memory.
+### The Cleanup Mechanism (RAII)
 
-The `Orchestrator` transitions the `VerifierSession` to a final `Cancelled`
-state, signalling the UI to dismiss the verification view.
+The system relies on a **Connection Handle** pattern to ensure the radio spins
+down:
+
+1. When `BluetoothTransport` starts, it returns a `ConnectionHandle` object to
+   the `Session`.
+2. This Handle holds a `weak` reference back to the Transport.
+3. When the `Session` is de-allocated (set to nil), it releases the Handle.
+4. **Crucially:** The Handle's `deinit` method automatically calls
+   `transport.disconnect()` or `stopAdvertising()`.
+
+This ensures that if the Session dies (for any reason), the connection is
+forcibly terminated.
 
 ```mermaid
 sequenceDiagram
@@ -536,21 +572,21 @@ sequenceDiagram
 
     User->>UI: Tap Cancel
     UI->>OR: cancelVerification()
-    
-    %% Transition First
+
+    %% Transition to Cancelled state first
     OR->>VS: transition(to: .cancelled)
-    VS-->>OR: state = Cancelled
-    
-    %% Teardown Effects
-    par Resource Teardown
-        OR->>CAM: stopScanning()
-        OR->>BLE: disconnect()
-        Note right of BLE: Release radio
-        
-        OR->>CRY: wipeEphemeralKeys()
-        Note left of CRY: Wipe Keys, Transcript &<br/>Message Counters
-    end
-    
     OR->>UI: render(state: .cancelled)
+
+    %% Implicit Teardown
+    OR->>OR: currentSession = nil
+
+    VS->>VS: Session Deallocates
+
+    %% Automatic Cleanup Effects
+    Note right of BLE: Auto-Disconnect<br/>(Handle Released)
+    BLE->>BLE: disconnect()
+
+    Note left of CRY: Keys wiped from memory
+
     UI-->>User: Dismiss Flow
 ```
